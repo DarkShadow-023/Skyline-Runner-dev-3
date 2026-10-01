@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_PixelRect:
     serializedVersion: 2
-    x: 0
-    y: 43
+    x: -1977
+    y: 51
     width: 1920
     height: 989
   m_ShowMode: 4
@@ -23,7 +23,7 @@ MonoBehaviour:
   m_RootView: {fileID: 2}
   m_MinSize: {x: 875, y: 300}
   m_MaxSize: {x: 10000, y: 10000}
-  m_Maximized: 1
+  m_Maximized: 0
 --- !u!114 &2
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -363,7 +363,10 @@ MonoBehaviour:
       m_LastClickedID:
         m_Data: 0
       m_ExpandedIDs:
-      - m_Data: -23416
+      - m_Data: -68812
+      - m_Data: -68654
+      - m_Data: -68502
+      - m_Data: -65550
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -690,8 +693,8 @@ MonoBehaviour:
     m_TextWithWhitespace: "Scene\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 265
-    y: 24
+    x: -1713
+    y: 87
     width: 1390
     height: 526
   m_SerializedDataModeController:
@@ -1376,9 +1379,9 @@ MonoBehaviour:
     m_SceneHandles: []
     m_ShowAllHits: 0
     m_SkipHidden: 0
-    m_SearchArea: 1
+    m_SearchArea: 0
     m_Folders:
-    - Assets
+    - Assets/Scenes
     m_Globs: []
     m_ProductIds: 
     m_AnyWithAssetOrigin: 0
@@ -1388,19 +1391,23 @@ MonoBehaviour:
   m_ViewMode: 1
   m_StartGridSize: 64
   m_LastFolders:
-  - Assets
+  - Assets/Scenes
   m_LastFoldersGridSize: -1
-  m_LastProjectPath: C:\Users\A00328296\Skyline Runner
+  m_LastProjectPath: C:\Users\A00328296\Skyline Runner\Skyline-Runner-dev-3
   m_LockTracker:
     m_IsLocked: 0
   m_LastLocalAssetsSearchArea: 0
   m_FolderTreeState:
     scrollPos: {x: 0, y: 79}
     m_SelectedIDs:
-    - m_Data: 59384
+    - m_Data: 72392
     m_LastClickedID:
-      m_Data: 59384
-    m_ExpandedIDs: []
+      m_Data: 72392
+    m_ExpandedIDs:
+    - m_Data: 0
+    - m_Data: 72388
+    - m_Data: 1000000000
+    - m_Data: 2147483647
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
