@@ -3,7 +3,7 @@
   <Project Path="Unity.ProBuilder.Examples.csproj" />
   <Project Path="Unity.StarterAssets.Editor.csproj" />
   <Project Path="Unity.StarterAssets.csproj" />
-  <Project Path="Unity.ProBuilder.Examples.Editor.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Unity.ProBuilder.Examples.Editor.csproj" />
   <Project Path="URPWizard.csproj" />
 </Solution>
