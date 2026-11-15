@@ -20,14 +20,8 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Mouse Look")]
     public float mouseSensitivity = 150f;
-    public float maxLookAngle = 90f;
+    public float maxLookAngle = 89f;
     public float mouseSmoothness = 15f;
-
-    private float xRotation;
-    private float targetMouseX;
-    private float targetMouseY;
-    private float smoothMouseX;
-    private float smoothMouseY;
 
     [Header("Slide")]
     public KeyCode slideKey = KeyCode.LeftControl;
@@ -64,39 +58,43 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 modelNormalPosition;
     private Quaternion modelNormalRotation;
 
-    // Camera position variables
     private Vector3 cameraNormalPosition;
     private Vector3 cameraTargetPosition;
 
     void Start()
     {
-        // Save normal Character Controller settings
+        if (controller == null)
+        {
+            Debug.LogError("PlayerMovement: CharacterController is missing!");
+            enabled = false;
+            return;
+        }
+
+        if (cameraTransform == null)
+        {
+            Debug.LogError("PlayerMovement: Camera Transform is missing!");
+            enabled = false;
+            return;
+        }
+
         normalHeight = controller.height;
         normalCenter = controller.center;
 
-        // Save model position and rotation
         if (playerModel != null)
         {
             modelNormalPosition = playerModel.localPosition;
             modelNormalRotation = playerModel.localRotation;
         }
 
-        // Save normal camera position
-        if (cameraTransform != null)
-        {
-            cameraNormalPosition = cameraTransform.localPosition;
-            cameraTargetPosition = cameraNormalPosition;
-        }
+        cameraNormalPosition = cameraTransform.localPosition;
+        cameraTargetPosition = cameraNormalPosition;
 
-        // Lock mouse
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
 
     void Update()
     {
-        MouseLook();
-
         HandleJumpInput();
 
         CheckWall();
@@ -108,62 +106,10 @@ public class PlayerMovement : MonoBehaviour
         Movement();
     }
 
-    // =========================================================
-    // MOUSE LOOK
-    // =========================================================
-
-    void MouseLook()
-    {
-        float mouseX =
-            Input.GetAxisRaw("Mouse X") *
-            mouseSensitivity *
-            Time.deltaTime;
-
-        float mouseY =
-            Input.GetAxisRaw("Mouse Y") *
-            mouseSensitivity *
-            Time.deltaTime;
-
-        targetMouseX = mouseX;
-        targetMouseY = mouseY;
-
-        // Smooth horizontal movement
-        smoothMouseX = Mathf.Lerp(
-            smoothMouseX,
-            targetMouseX,
-            mouseSmoothness * Time.deltaTime
-        );
-
-        // Smooth vertical movement
-        smoothMouseY = Mathf.Lerp(
-            smoothMouseY,
-            targetMouseY,
-            mouseSmoothness * Time.deltaTime
-        );
-
-        // Vertical camera rotation
-        xRotation -= smoothMouseY;
-
-        xRotation = Mathf.Clamp(
-            xRotation,
-            -maxLookAngle,
-            maxLookAngle
-        );
-
-        cameraTransform.localRotation =
-            Quaternion.Euler(xRotation, 0f, 0f);
-
-        // Horizontal player rotation
-        transform.Rotate(Vector3.up * smoothMouseX);
-    }
-
-    // =========================================================
     // JUMP INPUT
-    // =========================================================
 
     void HandleJumpInput()
     {
-        // Jump buffer
         if (Input.GetKeyDown(KeyCode.Space))
         {
             jumpBufferTimer = jumpBufferTime;
@@ -173,7 +119,6 @@ public class PlayerMovement : MonoBehaviour
             jumpBufferTimer -= Time.deltaTime;
         }
 
-        // Coyote time
         if (controller.isGrounded)
         {
             coyoteTimer = coyoteTime;
@@ -184,40 +129,44 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // =========================================================
     // MOVEMENT
-    // =========================================================
 
     void Movement()
     {
         float x = Input.GetAxisRaw("Horizontal");
         float z = Input.GetAxisRaw("Vertical");
 
-        Vector3 move =
-            transform.right * x +
-            transform.forward * z;
+        // Get horizontal camera directions
+        Vector3 forward = cameraTransform.forward;
+        Vector3 right = cameraTransform.right;
 
-        float currentSpeed = walkSpeed;
+        // Prevent looking up/down from affecting movement
+        forward.y = 0f;
+        right.y = 0f;
 
-        // Sprint
-        if (Input.GetKey(KeyCode.LeftShift) && !sliding)
-        {
-            currentSpeed = sprintSpeed;
-        }
+        forward.Normalize();
+        right.Normalize();
 
-        // Slide speed
-        if (sliding)
-        {
-            currentSpeed = slideSpeed;
-        }
+        // Move relative to camera direction
+        Vector3 move = forward * z + right * x;
 
-        // Prevent faster diagonal movement
         if (move.magnitude > 1f)
         {
             move.Normalize();
         }
 
-        // Horizontal movement
+        float currentSpeed = walkSpeed;
+
+        if (Input.GetKey(KeyCode.LeftShift) && !sliding)
+        {
+            currentSpeed = sprintSpeed;
+        }
+
+        if (sliding)
+        {
+            currentSpeed = slideSpeed;
+        }
+
         controller.Move(
             move * currentSpeed * Time.deltaTime
         );
@@ -236,7 +185,6 @@ public class PlayerMovement : MonoBehaviour
             jumpBufferTimer = 0f;
             coyoteTimer = 0f;
 
-            // Cancel wall climbing
             wallClimbing = false;
         }
 
@@ -254,15 +202,12 @@ public class PlayerMovement : MonoBehaviour
             velocity.y += gravity * Time.deltaTime;
         }
 
-        // Apply vertical movement
         controller.Move(
             Vector3.up * velocity.y * Time.deltaTime
         );
     }
 
-    // =========================================================
     // WALL RUN
-    // =========================================================
 
     void CheckWall()
     {
@@ -288,27 +233,22 @@ public class PlayerMovement : MonoBehaviour
             !wallClimbing;
     }
 
-    // =========================================================
     // WALL CLIMB
-    // =========================================================
 
     void CheckWallClimb()
     {
-        // Check in front
         bool frontWall = Physics.Raycast(
             transform.position,
             transform.forward,
             climbDistance
         );
 
-        // Check left
         bool leftWall = Physics.Raycast(
             transform.position,
             -transform.right,
             climbDistance
         );
 
-        // Check right
         bool rightWall = Physics.Raycast(
             transform.position,
             transform.right,
@@ -318,15 +258,12 @@ public class PlayerMovement : MonoBehaviour
         bool touchingWall =
             frontWall || leftWall || rightWall;
 
-        // Hold E near a wall to climb
         if (touchingWall && Input.GetKey(climbKey))
         {
             wallClimbing = true;
 
-            // Stop falling
             velocity.y = 0f;
 
-            // Move upward
             controller.Move(
                 Vector3.up * climbSpeed * Time.deltaTime
             );
@@ -337,13 +274,10 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // =========================================================
     // SLIDE
-    // =========================================================
 
     void HandleSlide()
     {
-        // Start slide
         if (Input.GetKeyDown(slideKey) &&
             controller.isGrounded &&
             !sliding)
@@ -351,7 +285,6 @@ public class PlayerMovement : MonoBehaviour
             StartSlide();
         }
 
-        // Continue slide
         if (sliding)
         {
             slideTimer -= Time.deltaTime;
@@ -364,16 +297,13 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // =========================================================
     // SLIDE CAMERA
-    // =========================================================
 
     void HandleSlideCamera()
     {
         if (cameraTransform == null)
             return;
 
-        // Smoothly lower and raise the camera
         cameraTransform.localPosition = Vector3.Lerp(
             cameraTransform.localPosition,
             cameraTargetPosition,
@@ -381,21 +311,17 @@ public class PlayerMovement : MonoBehaviour
         );
     }
 
-    // =========================================================
     // START SLIDE
-    // =========================================================
 
     void StartSlide()
     {
         sliding = true;
         slideTimer = slideDuration;
 
-        // Lower camera smoothly
         cameraTargetPosition =
             cameraNormalPosition +
             Vector3.down * slideCameraDrop;
 
-        // Make Character Controller shorter
         controller.height = normalHeight / 2f;
 
         controller.center = new Vector3(
@@ -404,7 +330,6 @@ public class PlayerMovement : MonoBehaviour
             normalCenter.z
         );
 
-        // Move model down and rotate it
         if (playerModel != null)
         {
             playerModel.localPosition =
@@ -420,22 +345,17 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // =========================================================
     // STOP SLIDE
-    // =========================================================
 
     void StopSlide()
     {
         sliding = false;
 
-        // Return camera smoothly to normal height
         cameraTargetPosition = cameraNormalPosition;
 
-        // Restore Character Controller
         controller.height = normalHeight;
         controller.center = normalCenter;
 
-        // Restore model
         if (playerModel != null)
         {
             playerModel.localPosition = modelNormalPosition;
@@ -443,13 +363,10 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // =========================================================
     // DEBUG WALL RAYS
-    // =========================================================
 
     void OnDrawGizmosSelected()
     {
-        // Climb detection
         Gizmos.color = Color.blue;
 
         Gizmos.DrawRay(
@@ -457,7 +374,6 @@ public class PlayerMovement : MonoBehaviour
             transform.forward * climbDistance
         );
 
-        // Wall run detection
         Gizmos.color = Color.red;
 
         Gizmos.DrawRay(
