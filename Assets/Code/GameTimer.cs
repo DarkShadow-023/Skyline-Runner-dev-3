@@ -17,12 +17,43 @@ public class GameTimer : MonoBehaviour
     private float timeLeft;
     private bool hasStopped = false;
 
+    private Image heartImage;
+    private Color originalHeartColor;
+
     void Start()
     {
+        // Check Inspector references
+        if (timerText == null || heart == null ||
+            gameHUD == null || deathHUD == null)
+        {
+            Debug.LogError("GameTimer: Missing Inspector references!");
+            enabled = false;
+            return;
+        }
+
+        // Get heart image
+        heartImage = heart.GetComponent<Image>();
+
+        if (heartImage == null)
+        {
+            Debug.LogError("GameTimer: Heart needs an Image component!");
+            enabled = false;
+            return;
+        }
+
+        // Store original heart appearance
+        originalHeartColor = heartImage.color;
+
+        heart.localScale = Vector3.one;
+        heartImage.color = originalHeartColor;
+
+        // Start timer
         timeLeft = startingTime;
 
         deathHUD.SetActive(false);
         gameHUD.SetActive(true);
+
+        UpdateTimerDisplay();
     }
 
     void Update()
@@ -30,17 +61,13 @@ public class GameTimer : MonoBehaviour
         if (hasStopped)
             return;
 
+        // Countdown
         timeLeft -= Time.deltaTime;
-        timeLeft = Mathf.Max(0, timeLeft);
+        timeLeft = Mathf.Max(0f, timeLeft);
 
-        int minutes = Mathf.FloorToInt(timeLeft / 60);
-        int seconds = Mathf.FloorToInt(timeLeft % 60);
+        UpdateTimerDisplay();
 
-        timerText.text = string.Format(
-            "{0:00}:{1:00}", minutes, seconds
-        );
-
-        // Heartbeat speeds up during the last 20 seconds
+        // Heartbeat speed
         float speed = 1.5f;
 
         if (timeLeft <= 20f)
@@ -49,6 +76,7 @@ public class GameTimer : MonoBehaviour
             speed = Mathf.Lerp(1.5f, 3.5f, danger);
         }
 
+        // Heart pulse
         float pulse = 1f +
             Mathf.Sin(Time.time * speed * 6.28f) * 0.12f;
 
@@ -70,12 +98,21 @@ public class GameTimer : MonoBehaviour
         }
     }
 
+    void UpdateTimerDisplay()
+    {
+        int minutes = Mathf.FloorToInt(timeLeft / 60);
+        int seconds = Mathf.FloorToInt(timeLeft % 60);
+
+        timerText.text = string.Format(
+            "{0:00}:{1:00}", minutes, seconds
+        );
+    }
+
     IEnumerator HeartExplosion()
     {
         timerText.text = "YOUR HEART HAS STOPPED";
         timerText.color = Color.red;
 
-        Image heartImage = heart.GetComponent<Image>();
         Vector3 originalScale = heart.localScale;
 
         // Heart expands
@@ -86,7 +123,7 @@ public class GameTimer : MonoBehaviour
         {
             elapsed += Time.deltaTime;
 
-            float progress = elapsed / duration;
+            float progress = Mathf.Clamp01(elapsed / duration);
 
             heart.localScale = Vector3.Lerp(
                 originalScale,
@@ -98,28 +135,35 @@ public class GameTimer : MonoBehaviour
         }
 
         // Heart fades away
-        if (heartImage != null)
+        Color startColor = heartImage.color;
+        elapsed = 0f;
+        float fadeDuration = 0.2f;
+
+        while (elapsed < fadeDuration)
         {
-            Color originalColor = heartImage.color;
-            elapsed = 0f;
+            elapsed += Time.deltaTime;
 
-            while (elapsed < 0.2f)
-            {
-                elapsed += Time.deltaTime;
+            float alpha = 1f - Mathf.Clamp01(elapsed / fadeDuration);
 
-                Color faded = originalColor;
-                faded.a = 1f - (elapsed / 0.2f);
+            Color faded = startColor;
+            faded.a = alpha;
 
-                heartImage.color = faded;
+            heartImage.color = faded;
 
-                yield return null;
-            }
+            yield return null;
         }
+
+        heartImage.color = new Color(
+            originalHeartColor.r,
+            originalHeartColor.g,
+            originalHeartColor.b,
+            0f
+        );
 
         // Wait 3 seconds
         yield return new WaitForSeconds(3f);
 
-        // Hide normal HUD and show death screen
+        // Show death screen
         gameHUD.SetActive(false);
         deathHUD.SetActive(true);
     }

@@ -18,11 +18,6 @@ public class PlayerMovement : MonoBehaviour
     public float coyoteTime = 0.15f;
     public float jumpBufferTime = 0.15f;
 
-    [Header("Mouse Look")]
-    public float mouseSensitivity = 150f;
-    public float maxLookAngle = 89f;
-    public float mouseSmoothness = 15f;
-
     [Header("Slide")]
     public KeyCode slideKey = KeyCode.LeftControl;
     public float slideSpeed = 12f;
@@ -44,11 +39,10 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 velocity;
 
     private bool sliding;
-    private float slideTimer;
-
     private bool wallRunning;
     private bool wallClimbing;
 
+    private float slideTimer;
     private float coyoteTimer;
     private float jumpBufferTimer;
 
@@ -63,16 +57,9 @@ public class PlayerMovement : MonoBehaviour
 
     void Start()
     {
-        if (controller == null)
+        if (controller == null || cameraTransform == null)
         {
-            Debug.LogError("PlayerMovement: CharacterController is missing!");
-            enabled = false;
-            return;
-        }
-
-        if (cameraTransform == null)
-        {
-            Debug.LogError("PlayerMovement: Camera Transform is missing!");
+            Debug.LogError("PlayerMovement: Missing references!");
             enabled = false;
             return;
         }
@@ -88,9 +75,6 @@ public class PlayerMovement : MonoBehaviour
 
         cameraNormalPosition = cameraTransform.localPosition;
         cameraTargetPosition = cameraNormalPosition;
-
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
     }
 
     void Update()
@@ -98,87 +82,32 @@ public class PlayerMovement : MonoBehaviour
         HandleJumpInput();
 
         CheckWall();
-        CheckWallClimb();
+
+        if (jumpBufferTimer <= 0f)
+            CheckWallClimb();
 
         HandleSlide();
         HandleSlideCamera();
-
         Movement();
     }
-
-    // JUMP INPUT
 
     void HandleJumpInput()
     {
         if (Input.GetKeyDown(KeyCode.Space))
-        {
             jumpBufferTimer = jumpBufferTime;
-        }
         else
-        {
             jumpBufferTimer -= Time.deltaTime;
-        }
 
         if (controller.isGrounded)
-        {
             coyoteTimer = coyoteTime;
-        }
         else
-        {
             coyoteTimer -= Time.deltaTime;
-        }
-    }
 
-    // MOVEMENT
-
-    void Movement()
-    {
-        float x = Input.GetAxisRaw("Horizontal");
-        float z = Input.GetAxisRaw("Vertical");
-
-        // Get horizontal camera directions
-        Vector3 forward = cameraTransform.forward;
-        Vector3 right = cameraTransform.right;
-
-        // Prevent looking up/down from affecting movement
-        forward.y = 0f;
-        right.y = 0f;
-
-        forward.Normalize();
-        right.Normalize();
-
-        // Move relative to camera direction
-        Vector3 move = forward * z + right * x;
-
-        if (move.magnitude > 1f)
-        {
-            move.Normalize();
-        }
-
-        float currentSpeed = walkSpeed;
-
-        if (Input.GetKey(KeyCode.LeftShift) && !sliding)
-        {
-            currentSpeed = sprintSpeed;
-        }
-
-        if (sliding)
-        {
-            currentSpeed = slideSpeed;
-        }
-
-        controller.Move(
-            move * currentSpeed * Time.deltaTime
-        );
-
-        // Ground
-        if (controller.isGrounded && velocity.y < 0f)
-        {
-            velocity.y = -2f;
-        }
-
-        // Jump
-        if (jumpBufferTimer > 0f && coyoteTimer > 0f)
+        if (jumpBufferTimer > 0f &&
+            (controller.isGrounded ||
+             coyoteTimer > 0f ||
+             wallClimbing ||
+             wallRunning))
         {
             velocity.y = jumpForce;
 
@@ -186,87 +115,95 @@ public class PlayerMovement : MonoBehaviour
             coyoteTimer = 0f;
 
             wallClimbing = false;
+            wallRunning = false;
         }
+    }
 
-        // Vertical movement
-        if (wallClimbing)
+    void Movement()
+    {
+        float x = Input.GetAxisRaw("Horizontal");
+        float z = Input.GetAxisRaw("Vertical");
+
+        Vector3 forward = cameraTransform.forward;
+        Vector3 right = cameraTransform.right;
+
+        forward.y = 0f;
+        right.y = 0f;
+
+        forward.Normalize();
+        right.Normalize();
+
+        Vector3 move = forward * z + right * x;
+
+        if (move.magnitude > 1f)
+            move.Normalize();
+
+        float currentSpeed = walkSpeed;
+
+        if (Input.GetKey(KeyCode.LeftShift) && !sliding)
+            currentSpeed = sprintSpeed;
+
+        if (sliding)
+            currentSpeed = slideSpeed;
+
+        controller.Move(move * currentSpeed * Time.deltaTime);
+
+        if (controller.isGrounded && velocity.y < 0f)
+            velocity.y = -2f;
+
+        if (wallClimbing && velocity.y <= 0f)
         {
             velocity.y = 0f;
         }
         else if (wallRunning && !controller.isGrounded)
         {
-            velocity.y = -wallRunFallSpeed;
+            velocity.y = Mathf.Max(velocity.y, -wallRunFallSpeed);
         }
         else
         {
             velocity.y += gravity * Time.deltaTime;
         }
 
-        controller.Move(
-            Vector3.up * velocity.y * Time.deltaTime
-        );
+        controller.Move(Vector3.up * velocity.y * Time.deltaTime);
     }
-
-    // WALL RUN
 
     void CheckWall()
     {
         bool wallRight = Physics.Raycast(
-            transform.position,
-            transform.right,
-            wallDistance
-        );
+            transform.position, transform.right, wallDistance);
 
         bool wallLeft = Physics.Raycast(
-            transform.position,
-            -transform.right,
-            wallDistance
-        );
+            transform.position, -transform.right, wallDistance);
 
-        bool movingForward =
-            Input.GetAxisRaw("Vertical") > 0;
+        bool movingForward = Input.GetAxisRaw("Vertical") > 0;
 
         wallRunning =
             (wallLeft || wallRight) &&
             !controller.isGrounded &&
             movingForward &&
-            !wallClimbing;
+            !wallClimbing &&
+            velocity.y <= 0f;
     }
-
-    // WALL CLIMB
 
     void CheckWallClimb()
     {
         bool frontWall = Physics.Raycast(
-            transform.position,
-            transform.forward,
-            climbDistance
-        );
+            transform.position, transform.forward, climbDistance);
 
         bool leftWall = Physics.Raycast(
-            transform.position,
-            -transform.right,
-            climbDistance
-        );
+            transform.position, -transform.right, climbDistance);
 
         bool rightWall = Physics.Raycast(
-            transform.position,
-            transform.right,
-            climbDistance
-        );
+            transform.position, transform.right, climbDistance);
 
-        bool touchingWall =
-            frontWall || leftWall || rightWall;
+        bool touchingWall = frontWall || leftWall || rightWall;
 
         if (touchingWall && Input.GetKey(climbKey))
         {
             wallClimbing = true;
-
             velocity.y = 0f;
 
-            controller.Move(
-                Vector3.up * climbSpeed * Time.deltaTime
-            );
+            controller.Move(Vector3.up * climbSpeed * Time.deltaTime);
         }
         else
         {
@@ -274,13 +211,10 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // SLIDE
-
     void HandleSlide()
     {
         if (Input.GetKeyDown(slideKey) &&
-            controller.isGrounded &&
-            !sliding)
+            controller.isGrounded && !sliding)
         {
             StartSlide();
         }
@@ -289,29 +223,18 @@ public class PlayerMovement : MonoBehaviour
         {
             slideTimer -= Time.deltaTime;
 
-            if (slideTimer <= 0f ||
-                !Input.GetKey(slideKey))
-            {
+            if (slideTimer <= 0f || !Input.GetKey(slideKey))
                 StopSlide();
-            }
         }
     }
 
-    // SLIDE CAMERA
-
     void HandleSlideCamera()
     {
-        if (cameraTransform == null)
-            return;
-
         cameraTransform.localPosition = Vector3.Lerp(
             cameraTransform.localPosition,
             cameraTargetPosition,
-            cameraSlideSmoothness * Time.deltaTime
-        );
+            cameraSlideSmoothness * Time.deltaTime);
     }
-
-    // START SLIDE
 
     void StartSlide()
     {
@@ -319,38 +242,30 @@ public class PlayerMovement : MonoBehaviour
         slideTimer = slideDuration;
 
         cameraTargetPosition =
-            cameraNormalPosition +
-            Vector3.down * slideCameraDrop;
+            cameraNormalPosition + Vector3.down * slideCameraDrop;
 
         controller.height = normalHeight / 2f;
 
         controller.center = new Vector3(
             normalCenter.x,
             normalCenter.y / 2f,
-            normalCenter.z
-        );
+            normalCenter.z);
 
         if (playerModel != null)
         {
             playerModel.localPosition =
-                modelNormalPosition +
-                new Vector3(0f, -0.5f, 0f);
+                modelNormalPosition + new Vector3(0f, -0.5f, 0f);
 
-            playerModel.localRotation =
-                Quaternion.Euler(
-                    45f,
-                    modelNormalRotation.eulerAngles.y,
-                    0f
-                );
+            playerModel.localRotation = Quaternion.Euler(
+                45f,
+                modelNormalRotation.eulerAngles.y,
+                0f);
         }
     }
-
-    // STOP SLIDE
 
     void StopSlide()
     {
         sliding = false;
-
         cameraTargetPosition = cameraNormalPosition;
 
         controller.height = normalHeight;
@@ -363,27 +278,19 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // DEBUG WALL RAYS
-
-    void OnDrawGizmosSelected()
+    void OnDisable()
     {
-        Gizmos.color = Color.blue;
+        if (controller != null && normalHeight > 0f)
+        {
+            controller.height = normalHeight;
+            controller.center = normalCenter;
+        }
 
-        Gizmos.DrawRay(
-            transform.position,
-            transform.forward * climbDistance
-        );
+        if (cameraTransform != null)
+            cameraTransform.localPosition = cameraNormalPosition;
 
-        Gizmos.color = Color.red;
-
-        Gizmos.DrawRay(
-            transform.position,
-            transform.right * wallDistance
-        );
-
-        Gizmos.DrawRay(
-            transform.position,
-            -transform.right * wallDistance
-        );
+        sliding = false;
+        wallRunning = false;
+        wallClimbing = false;
     }
 }
